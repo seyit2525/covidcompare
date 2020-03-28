@@ -212,16 +212,6 @@ class Map {
     }
   }
 
-  setBaseLayerHandling() {
-    this.lmap.on('baselayerchange', function (e) {
-      window.curLayer = e.name
-      initSidebarControls()
-      updateSidebar()
-      this.updateMapStyle()
-      this.legendControl.updateLegend()
-  });
-  }
-
 };
 
 

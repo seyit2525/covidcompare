@@ -136,14 +136,13 @@ function initSidebarControls(){
     controlsDiv.append(selectMenu, resetButton)
 }
 
-function populateSidebarState(dataDiv){
-    let totalCases = 0
-    let data = getSidebarData()
+function populateSidebarState(dataDiv, sidebarData){
+    let totalCases = 0    
     let region = window.curState ? window.curState:"United States"
     let {text:metricText, value:metric} = getSelectedMetric()
     let newOL = document.createElement('ol')
 
-    for(let state of data.sort(sortByProp(metric))){
+    for(let state of sidebarData.sort(sortByProp(metric))){
         let newLI = document.createElement('li')
         let {statename, cases, lat, long} = state["properties"]
         let curMetric = state["properties"][metric]
@@ -164,14 +163,13 @@ function populateSidebarState(dataDiv){
     dataDiv.append(header,  newOL)
 }
 
-function populateSidebarCounty(dataDiv){
+function populateSidebarCounty(dataDiv, sidebarData){
     let totalCases = 0
-    let data = getSidebarData()
     let curState = window.curState
     let region = curState ? curState:"United States"
     let {text:metricText, value:metric} = getSelectedMetric()
     let newOL = document.createElement('ol')
-    for(let county of data.sort(sortByProp(metric))){
+    for(let county of sidebarData.sort(sortByProp(metric))){
         let newLI = document.createElement('li')
         let {name, statename, cases, geo_id:countyID} = county["properties"]
         let curMetric = county["properties"][metric]
@@ -253,29 +251,33 @@ function getUnassigned(stateName, metric) {
     return value
 }
 
-function getSidebarData(){
-    let curState = window.curState
-    let curLayer = window.curLayer
-    let allData = curLayer === "States" ? stateData["features"]:countyData["features"]
+function getSidebarData(curState, curLayer){
+    let sidebarData = curLayer === "States" ? stateData["features"]:countyData["features"]
     //if we've selected a current state, filter to only show data from that state
     if(curState){
         let filt = filterByProp("statename", curState)
-        allData = allData.filter(filt)
+        sidebarData = sidebarData.filter(filt)
     }
-    return allData
+    return sidebarData
 }
 
 function updateSidebar(){
-    let dataDiv = document.querySelector(".data")
+    const dataDiv = document.querySelector(".data")
+    const curState = window.curState;
+    const curLayer = window.curLayer;
+
+    // Get data to populate sidebar
+    let sidebarData = getSidebarData(curState, curLayer)
+
     dataDiv.innerHTML = ''
     if(window.curCounty){
-        populateSidebarDetailed(dataDiv)
+        populateSidebarDetailed(dataDiv, sidebarData)
     }
-    else if(window.curLayer === "States"){
-        populateSidebarState(dataDiv)
+    else if(window.curLayer === "States"){        
+        populateSidebarState(dataDiv, sidebarData)
     }
     else{
-        populateSidebarCounty(dataDiv)
+        populateSidebarCounty(dataDiv, sidebarData)
     }
 }
 

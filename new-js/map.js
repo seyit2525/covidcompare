@@ -15,24 +15,26 @@ class Map {
       this.info = null
   }
 
-  initMap() {
+  initMap(accessToken) {
     this.lmap = L.map('map')
+    this.addTileLayer(accessToken)
     this.setMapLatLong()
     this.setMapZoomLevel()
     this.setMapView()
-    this.stateLayer = this.createStateLayer();
-    this.countyLayer = this.createCountyLayer();
-    this.stateLayer.addTo(this.lmap)
-    this.countyLayer.addTo(this.lmap)
-    this.setStateIdsToLayer()
-    this.setCountyIdsToLayer()
-    this.setOverlayMaps();
-    this.layerControl = this.createLayerControl()
-    this.layerControl.addTo(this.lmap)
     this.addInfoBlock()
     this.info.updateState = this.handleUpdateState()
     this.info.updateCounty = this.handleUpdateCounty()
     this.info.addTo(this.lmap);    
+    this.createStateLayer();
+    this.createCountyLayer();
+    this.addStateLayerToMap()
+    this.setStateIdsToLayer()
+    this.setCountyIdsToLayer()
+    this.setStateOutlines()
+    this.setOverlayMaps();
+    this.createLayerControl()
+    this.layerControl.addTo(this.lmap)
+
   }
 
   setMapLatLong() {
@@ -82,19 +84,32 @@ class Map {
   }
 
   createCountyLayer() {
-    L.geoJson(countyData, 
+    this.countyLayer = L.geoJson(countyData, 
       { 
-          style:countyStyle, 
-          onEachFeature:onEachCounty,
+          style: this.getCountyStyle, 
+          onEachFeature: this.onEachCounty,
+          highlightCounty: this.highlightCounty,
+          resetHighlightCounty: this.resetHighlightCounty,          
       })
   }
 
   createStateLayer() {
-    L.geoJson(stateData, 
+    this.stateLayer = L.geoJson(stateData, 
       { 
-          style:stateStyle, 
-          onEachFeature:onEachState,          
+          style: this.getStateStyle, 
+          onEachFeature: this.onEachState, 
+          highlightState: (layer) => {this.highlightState(layer)},
+          resetHighlightState: (layer) => {this.resetHighlightState(layer)},
+          zoomToCounties: (layer) => {this.zoomToCounties(layer)},
+          stateLayer: this.stateLayer,
+          countyLayer: this.countyLayer,
+          lmap: this.lmap,  
+          info: this.info,
       })
+  }
+
+  addStateLayerToMap() {
+    this.stateLayer.addTo(this.lmap)
   }
 
   setStateIdsToLayer() {
@@ -107,9 +122,9 @@ class Map {
 
   setCountyIdsToLayer() {
     //Register a link between county geo_id and the layer of their feature
-    let _layersCounty = countyLayer["_layers"]
+    let _layersCounty = this.countyLayer["_layers"]
     for (let layer_key in _layersCounty){
-        countyIdsToLayer[_layersCounty[layer_key]["feature"]["properties"]["geo_id"]] = layer_key
+        this.countyIdsToLayer[_layersCounty[layer_key]["feature"]["properties"]["geo_id"]] = layer_key
     }        
   }
 
@@ -119,7 +134,7 @@ class Map {
   }
 
   createLayerControl() {
-    this.layerControl = L.control.layers(overlayMaps)
+    this.layerControl = L.control.layers(this.overlayMaps)
   }
 
   expandLayerControl() {
@@ -128,18 +143,18 @@ class Map {
 
   updateMapStyle(){
     if(window.curLayer === "States"){
-        stateLayer.eachLayer((layer) => stateLayer.resetStyle(layer))
+        this.stateLayer.eachLayer((layer) => stateLayer.resetStyle(layer))
     }
     if(window.curLayer === "Counties"){
-        countyLayer.eachLayer((layer) => countyLayer.resetStyle(layer))
+        this.countyLayer.eachLayer((layer) => countyLayer.resetStyle(layer))
     }
   }
 
   addInfoBlock() {
     this.info = L.control();
-    this.info.onAdd = function (map) {
+    this.info.onAdd = (map) => {
         this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
-        this.updateState();
+        this.info.updateState();
         return this._div;
   }
 }
@@ -211,6 +226,132 @@ class Map {
       this._div.innerHTML = title + body
     }
   }
+
+  getState(stateID) {
+    return statesData["features"].find(element => element["id"] == stateID)
+}
+
+  convertStateIDToLayer(stateID){
+    const layer_id = this.stateIdsToLayer[stateID]
+    return this.stateLayer._layers[layer_id]
+  }  
+
+  getStateStyle(feature) {
+    return {
+        fillColor: getColor(feature.properties),
+        weight: 1,
+        opacity: 1,
+        color: 'black',
+        dashArray: '3',
+        fillOpacity: 0.7,        
+    };
+  }
+
+  onEachState(feature, layer) {
+    layer.on({
+        mouseover: () => this.highlightState(layer),
+        mouseout: () => this.resetHighlightState(layer),
+        click: () => this.zoomToCounties(layer)
+    });
+  }
+
+  zoomToFeature(layer, padding) {
+    this.lmap.fitBounds(layer.getBounds(), {padding:padding});
+}
+
+  zoomToCounties(layer){
+    this.curState = layer.feature.properties.statename
+    let menuSelect = document.querySelector('#metricSelect')
+    let curMetric = getSelectedMetric().value
+    this.lmap.removeLayer(this.stateLayer)
+    this.lmap.addLayer(this.countyLayer)
+    this.zoomToFeature(layer, padding=[100,100])   
+  } 
+
+  resetHighlightState(layer) {
+    this.stateLayer.resetStyle(layer)
+    this.info.updateState();
+  }
+
+  highlightState(layer) {
+    layer.setStyle({
+        weight: 5,
+        color: '#404040',
+        dashArray: '',
+        fillOpacity: 0.7
+    });
+    this.info.updateState(layer.feature.properties);
+    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+        layer.bringToFront();
+    }
+  }
+
+  getCounty(countyID){
+    return countyData["features"].find(element => element["properties"]["geo_id"] == countyID)
+}
+
+  convertCountyIDToLayer(countyID){
+      let layer_id = this.countyIdsToLayer[countyID]
+      return this.countyLayer._layers[layer_id]
+  }
+
+  getCountyStyle(feature) {
+      return {
+          fillColor: getColor(feature.properties),
+          weight: 1,
+          opacity: 1,
+          color: 'white',
+          dashArray: '3',
+          fillOpacity: 0.7,
+      };
+  }
+
+  displayDetailed(layer){
+      this.curCounty = layer.feature.properties.geo_id
+      //let menuSelect = document.querySelector('#metricSelect')
+      //let curMetric = getSelectedMetric().value
+      this.lmap.removeLayer(this.stateLayer)
+      this.lmap.addLayer(this.countyLayer)
+      this.zoomToFeature(layer, padding=[300,300])
+      updateSidebar()
+  }
+
+
+  highlightCounty(layer) {
+      if (!isViewable(layer)){
+          if(this.lmap.getZoom() > 7){
+              this.lmap.setZoom(7)
+          }
+          this.lmap.panTo(layer.getBounds().getCenter())
+      }
+      layer.setStyle({
+          weight: 5,
+          dashArray: '',
+          fillOpacity: 0.7
+      });
+      if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+          layer.bringToFront();
+      }
+      this.info.updateCounty(layer.feature.properties);
+  }
+
+  resetHighlightCounty(layer) {
+      layer.setStyle({
+          weight: 1,
+          opacity: 1,
+          color: 'white',
+          dashArray: '3',
+          fillOpacity: 0.7
+      });
+  }
+
+  onEachCounty(feature, layer){
+    layer.on({
+        mouseover: () => this.highlightCounty(layer),
+        mouseout: () => this.resetHighlightCounty(layer),
+        click: () => this.displayDetailed(layer),
+    });
+}
 
 };
 

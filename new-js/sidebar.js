@@ -7,12 +7,23 @@ class Sidebar {
       this.curCounty = window.curCounty;
       this.dataDiv = document.querySelector(".data")   
       this.options_list = [] 
+      this.selectMenu = null
+      this.controlsDiv = null
+      this.header = null
+      this.note = null      
+  }
+
+  initSidebar() {
+      this.addSidebar()    
+      this.getSidebarData()
+      this.initSidebarControls()
+      this.updateSidebar()           
   }
 
   addSidebar() {
-      this.sidebar = L.control.sidebar({container:'sidebar'})
-      .addTo(this.map)
-      .open('home');    
+    this.sidebar = L.control.sidebar({container:'sidebar'})
+    .addTo(this.map.lmap)
+    .open('home');    
   }
 
   getSidebarData(){
@@ -32,7 +43,7 @@ class Sidebar {
       if(this.curCounty){
           populateSidebarDetailed(this.dataDiv, this.data)
       }
-      else if(window.curLayer === "States"){        
+      else if(this.map.curLayer === "States"){        
           this.populateSidebarState(this.dataDiv, this.data)
       }
       else{
@@ -52,24 +63,24 @@ class Sidebar {
   
   initSidebarControls(){
       let curValue = getSelectedMetric()
-      let controlsDiv = document.querySelector(".controls")
-      let resetButton = this.getResetButton()
-      let selectMenu = this.getSelectMenu()
+      this.controlsDiv = document.querySelector(".controls")
+      let Button = this.getResetButton()
+      this.selectMenu = this.getSelectMenu()
       //Make sure we keep the selected value 
       if (curValue){
-          selectMenu.value = curValue.value
+          this.selectMenu.value = curValue.value
       }
-      controlsDiv.innerHTML = ""
-      controlsDiv.append(selectMenu, resetButton)
+      this.controlsDiv.innerHTML = ""
+      this.controlsDiv.append(this.selectMenu, this.getResetButton())
   }
 
   resetMap = () => {
       window.curState = null
       window.curCounty = null
-      map.setView([42, -104], 5);
-      map.removeLayer(countyLayer)
-      map.addLayer(stateLayer)
-      updateSidebar()
+      this.map.lmap.setView([42, -104], 5);
+      this.map.lmap.removeLayer(countyLayer)
+      this.map.lmap.addLayer(stateLayer)
+      this.updateSidebar()
   }
   
   getResetButton() {
@@ -91,7 +102,7 @@ class Sidebar {
           window.curState = stateName
           window.curCounty = null;
           zoomToFeature(curStateLayer, padding=[100,100])
-          updateSidebar()
+          this.updateSidebar()
       }
       return backToStateButton
   }
@@ -201,15 +212,15 @@ class Sidebar {
               totalCases = ""
           }
           newLI.innerHTML = `<a>${state["properties"]["statename"]}</a> - ${curMetric} ${metricText}`
-          let curLayer = convertStateIDToLayer([state["id"]])
-          newLI.addEventListener("mouseover", (e) => highlightState(curLayer))
-          newLI.addEventListener("mouseout", (e) => resetHighlightState(curLayer))
-          newLI.addEventListener("click", (e) => zoomToCounties(curLayer))
+          let curLayer = this.map.convertStateIDToLayer([state["id"]])
+          newLI.addEventListener("mouseover", (e) => this.map.highlightState(curLayer))
+          newLI.addEventListener("mouseout", (e) => this.map.resetHighlightState(curLayer))
+          newLI.addEventListener("click", (e) => this.map.zoomToCounties(curLayer))
           newOL.appendChild(newLI)
       }
-      let header = document.createElement('h3')
-      header.innerText = `${metricText} in ${region}: ${totalCases}`
-      dataDiv.append(header,  newOL)
+      this.header = document.createElement('h3')
+      this.header.innerText = `${metricText} in ${region}: ${totalCases}`
+      dataDiv.append(this.header,  newOL)
   }
   
   populateSidebarCounty(dataDiv, sidebarData){
@@ -230,10 +241,10 @@ class Sidebar {
               curMetric = curMetric.toFixed(3)
               totalCases = ""
           }
-          let curLayer = convertCountyIDToLayer(countyID)
+          let curLayer = this.map.convertCountyIDToLayer(countyID)
           newLI.innerHTML = `<a>${name}, ${statename}</a> ${curMetric}  ${metricText}`
-          newLI.addEventListener("mouseover", (e) => highlightCounty(curLayer))
-          newLI.addEventListener("mouseout", (e) => resetHighlightCounty(curLayer))
+          newLI.addEventListener("mouseover", (e) => this.map.highlightCounty(curLayer))
+          newLI.addEventListener("mouseout", (e) => this.map.resetHighlightCounty(curLayer))
           newLI.addEventListener("click", (e) => displayDetailed(curLayer, padding=[100,100]))
           //newLI.addEventListener("mouseover", () => info.updateCounty(county["properties"]))
           newOL.appendChild(newLI)
@@ -247,12 +258,12 @@ class Sidebar {
               totalCases += curMetric
           }
       }
-      header = document.createElement('h3')
+      let header = document.createElement('h3')
       header.innerText = `${metricText} in ${region}: ${totalCases}`
-      note = document.createElement('span')
-      note.innerText  = `Note: States sometimes report cases with county "unassigned", thus county totals for cases and deaths may be lower. For accurate totals, please view data by state, not county.`
-      note.classList.add('discrepancy')
-      dataDiv.append(header, note, newOL)
+      this.note = document.createElement('span')
+      this.note.innerText  = `Note: States sometimes report cases with county "unassigned", thus county totals for cases and deaths may be lower. For accurate totals, please view data by state, not county.`
+      this.note.classList.add('discrepancy')
+      this.dataDiv.append(header, this.note, newOL)
   }
   
   populateSidebarDetailed(dataDiv){
@@ -286,8 +297,7 @@ class Sidebar {
           `
       content.innerHTML = body
       let backToStateButton = getBackToStateButton(statename, curStateLayer)
-      dataDiv.append(header, header2, backToStateButton, content, )
-      
+      dataDiv.append(header, header2, backToStateButton, content, )      
   }    
 
 }

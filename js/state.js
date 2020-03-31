@@ -23,7 +23,6 @@ function onEachState(feature, layer) {
         mouseover: () => highlightState(layer),
         mouseout: () => resetHighlightState(layer),
         click: () => zoomToCounties(layer)
-    //click: zoomToCounties,
     });
 }
 

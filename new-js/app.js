@@ -1,4 +1,3 @@
-
 class App {
   constructor () {
       this.map = null;
@@ -16,19 +15,20 @@ class App {
 
   addMap() {
     this.map = new Map
-    this.map.addTileLayer(this.accessToken);
-
+    this.map.initMap(this.accessToken)
   }
 
   addSidebar() {
-    this.sidebar = new Sidebar    
+    this.sidebar = new Sidebar(this.map)
+    this.sidebar.initSidebar()
+    this.sidebar.addSidebar()    
     this.sidebar.getSidebarData()
     this.sidebar.initSidebarControls()
     this.sidebar.updateSidebar()
   }
 
   setBaseLayerHandling() {
-    this.lmap.on('baselayerchange', function (e) {
+    this.map.lmap.on('baselayerchange', function (e) {
       window.curLayer = e.name
       this.sidebar.initSidebarControls()
       this.sidebar.updateSidebar()
